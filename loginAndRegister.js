@@ -5,6 +5,10 @@ const { validateUser, registerUser, getCandidate, getReferral,
 
 const router = express.Router();
 
+router.get("/",express.json(), async(req,res,next)=>{
+    res.send("Welcome to Hari HR Candidate App");
+})
+
 router.post("/login",express.json(), async(req,res,next)=>{
     const request = req.body;
     const loginCheck = await validateUser(request.mail, request.password);
