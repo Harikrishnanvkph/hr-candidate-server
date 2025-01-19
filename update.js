@@ -46,6 +46,7 @@ router.post("/pSkill",express.json(),async(req,res,next)=>{
 })
 
 router.post("/pImage",upload.single('profile-image'),async(req,res)=>{
+    console.log('ji')
     try{
         const {mail} = req.body;
         if(!req.file){
@@ -58,7 +59,8 @@ router.post("/pImage",upload.single('profile-image'),async(req,res)=>{
             data : req.file.buffer
         }
         const imgUser= await imageUpload(mail, file)
-        // res.status(200).send(imgUser)
+        console.log(imgUser)
+        res.status(200).send(imgUser)
     }catch(error){
         if(error instanceof multer.MulterError){
             if(error.code === "LIMIT_FILE_SIZE"){
