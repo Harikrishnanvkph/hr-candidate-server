@@ -59,8 +59,10 @@ router.post("/pImage",upload.single('profile-image'),async(req,res)=>{
             data : req.file.buffer
         }
         const imgUser= await imageUpload(mail, file)
-        console.log(imgUser)
-        res.status(200).send(imgUser)
+        if(imgUser){
+            res.status(200).send(file)
+        }
+
     }catch(error){
         if(error instanceof multer.MulterError){
             if(error.code === "LIMIT_FILE_SIZE"){

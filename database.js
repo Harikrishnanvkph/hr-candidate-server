@@ -6,8 +6,7 @@ const dbClient = client.db("HRHIRE");
 
 //Getting or Checking users in the list
 async function getCandidate(mail){
-    const ce = await dbClient.collection("Candidate").findOne({mail : mail},{_id : 0});
-    return ce;
+    return await dbClient.collection("Candidate").findOne({mail: mail}, {_id: 0});
 }
 
 
@@ -95,13 +94,12 @@ async function imageUpload(mail,file){
         return null;
     }
 
-    await dbClient.collection("Candidate" ).updateOne(
+    return await dbClient.collection("Candidate" ).updateOne(
         {mail : mail},{
         $set : {
             image : file
         }
     })
-    return await checkUser(mail);
 }
 
 //get

@@ -2,6 +2,7 @@ const express = require("express");
 const {MongoClient} = require("mongodb");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const {Server} = require('socket.io');
 dotenv.config();
 
 const port = process.env.PORT || 3000;
@@ -22,8 +23,14 @@ async function InitiateDatabase(){
 }
 
 async function ConnectToServer(){
-    server.listen(3000,'localhost',()=>{
+    const httpServer = server.listen(3000,'localhost',()=>{
         console.log(`Connected to Server Successfully! http://localhost:${port}`)
+    })
+    const socketServer = new Server(httpServer,{
+        cors : {
+            origin : true
+        },
+        path : "/js/Messages"
     })
     server.use(cors(corsOptions));
     server.use(express.json());
@@ -37,7 +44,7 @@ async function init(){
     await ConnectToServer();
 }
 
-init();
+init().catch();
 
 module.exports = client;
 
