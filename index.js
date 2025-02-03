@@ -36,6 +36,7 @@ async function ConnectToServer(){
     server.use(express.json());
     server.use("/",require("./loginAndRegister.js"));
     server.use("/update",require("./update.js"));
+    server.use('/js/Messages',require('./jsMessage.js'))
 }
 
 

@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { genPassword, createChatID } = require("./logic");
 
 const dbClient = client.db("HRHIRE");
+const socketClient = client.db('socket')
 
 //Getting or Checking users in the list
 async function getCandidate(mail){
@@ -37,6 +38,11 @@ async function registerUser(userDetail){
             company : "",
             referrals : [],
             services : []
+        })
+        await socketClient.collection('users').insertOne({
+            uuid : gId,
+            mail : userDetail.mail,
+            socketId : null
         })
         await setId(gId);
         return "200";
@@ -148,6 +154,26 @@ async function updateService(mail, service){
     return ref ? ref : null;
 }
 
+//jsMessage
+async function getCnvWithoutMsg(id){
+    return await socketClient.collection('conversations').find({
+        $or: [{"sender.id": id}, {"receiver.id": id}]
+    }, {
+        projection: {_id: 0, message: 0}
+    }).toArray();
+}
+
+//jsMessage
+async function getCnvWithConversationId(sender, receiver){
+    const cnv1 = `${sender}target${receiver}`;
+    const cnv2 = `${receiver}target${sender}`
+    return await socketClient.collection('conversations').findOne({
+        conversation_id : {
+            $in : [cnv1, cnv2]
+        }
+    });
+}
+
 module.exports = {getCandidate,imageUpload,updateNumber,updateSkill,
     registerUser, validateUser, getReferral, getService,updateReferral,
-    updateService, getMyReferral,getMyService}
+    updateService, getMyReferral,getMyService,getCnvWithoutMsg, getCnvWithConversationId}
