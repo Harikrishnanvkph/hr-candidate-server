@@ -31,20 +31,18 @@ router.post("/user",express.json(),async (req,res,next)=>{
 
 router.get("/referral",express.json(),async (req,res,next)=>{
     const getUser = await getReferral();
-    console.log(getUser)
+    // console.log('referral')
     res.send(getUser);
 })
 
 router.get("/service",express.json(),async (req,res,next)=>{
     const getUser = await getService();
-    console.log(getUser)
     res.send(getUser);
 })
 
 router.post("/myreferral",express.json(),async (req,res,next)=>{
     const {mail} = req.body;
     const getUser = await getMyReferral(mail);
-    console.log(getUser)
     res.send(getUser);
 })
 

@@ -3,11 +3,22 @@ const bcrypt = require('bcrypt');
 const { genPassword, createChatID } = require("./logic");
 
 const dbClient = client.db("HRHIRE");
-const socketClient = client.db('socket')
+const socketClient = client.db('socket');
+
+// Below createIndex code is already done no need to redo everytime
+// async function init(){
+//     await dbClient.collection("Candidate").createIndex({firstName : 1})
+//     await dbClient.collection("Candidate").createIndex({mail : 1},{
+//         unique : 1
+//     })
+// }
 
 //Getting or Checking users in the list
 async function getCandidate(mail){
-    return await dbClient.collection("Candidate").findOne({mail: mail}, {_id: 0});
+    return await dbClient.collection("Candidate").findOne(
+        {mail: mail},
+        {projection : {_id: 0}}
+    );
 }
 
 
@@ -26,11 +37,12 @@ async function validateUser(mail,password){
 async function registerUser(userDetail){
     const cUser = await getCandidate(userDetail.mail);
     if(cUser == null){
-        const gId = await getId(); 
+        const gId = await getId();
         await dbClient.collection("Candidate").insertOne({
-            user_id : gId,
+            uuid : gId,
             mail : userDetail.mail,
             firstName : userDetail.firstName,
+            name : userDetail.firstName,
             lastName : userDetail.lastName,
             password : await genPassword(userDetail.password),
             image : "",
@@ -42,10 +54,14 @@ async function registerUser(userDetail){
         await socketClient.collection('users').insertOne({
             uuid : gId,
             mail : userDetail.mail,
+            name : userDetail.firstName,
             socketId : null
         })
         await setId(gId);
-        return "200";
+        return {
+            uuid : gId,
+            status : '200'
+        };
     }
     return "409";
 }
@@ -55,10 +71,10 @@ async function getId(){
     return gt.id;
 }
 
-async function setId(user_id){
+async function setId(uuid){
     await dbClient.collection("User_Id").updateOne({},{
         $set : {
-            id : user_id + 1
+            id : uuid + 1
         }
     })
 }
@@ -71,10 +87,10 @@ async function updateNumber(number,mail){
 
     await dbClient.collection("Candidate").updateOne(
         {mail : mail},{
-        $set : {
-            phone_number : number
-        }
-    })
+            $set : {
+                phone_number : number
+            }
+        })
     return await getCandidate(mail);
 }
 
@@ -85,10 +101,10 @@ async function updateSkill(skill,mail){
     }
     await dbClient.collection("Candidate").updateOne(
         {mail : mail},{
-        $set : {
-            company : skill
-        }
-    })
+            $set : {
+                company : skill
+            }
+        })
     return await getCandidate(mail);
 }
 
@@ -102,36 +118,32 @@ async function imageUpload(mail,file){
 
     return await dbClient.collection("Candidate" ).updateOne(
         {mail : mail},{
-        $set : {
-            image : file
-        }
-    })
+            $set : {
+                image : file
+            }
+        })
 }
 
 //get
 async function getReferral(){
-    const ref = await dbClient.collection("ReferralCompanies").find({}).toArray();
-    return ref;
+    return await dbClient.collection("ReferralCompanies").find({}).toArray();
 }
 
 async function getService(){
-    const ref = await dbClient.collection("CandidateServices").find({}).toArray();
-    return ref;
+    return await dbClient.collection("CandidateServices").find({}).toArray();
 }
 
 async function getMyReferral(mail){
-    const ref = await dbClient.collection("Candidate").findOne({mail:mail},
-        {_id : 0, referrals : 1}
+    return await dbClient.collection("Candidate").findOne({mail: mail},
+        {projection : {_id: 0, referrals: 1}}
     );
-    return ref;
 }
 
 async function getMyService(mail){
-    console.log(mail)
-    const ref = await dbClient.collection("Candidate").findOne({mail:mail},
-        {_id : 0, services : 1}
+    // console.log(mail)
+    return await dbClient.collection("Candidate").findOne({mail: mail},
+        {projection : {_id: 0, services: 1}}
     );
-    return ref;
 }
 
 
@@ -157,23 +169,68 @@ async function updateService(mail, service){
 //jsMessage
 async function getCnvWithoutMsg(id){
     return await socketClient.collection('conversations').find({
-        $or: [{"sender.id": id}, {"receiver.id": id}]
+        $or: [{"sender.uuid": id}, {"receiver.uuid": id}]
     }, {
         projection: {_id: 0, message: 0}
     }).toArray();
 }
 
 //jsMessage
-async function getCnvWithConversationId(sender, receiver){
-    const cnv1 = `${sender}target${receiver}`;
-    const cnv2 = `${receiver}target${sender}`
+async function getCnvWithConversationId(sender_id, receiver_id){
+    const cnv = [sender_id, receiver_id].sort().join("_")
     return await socketClient.collection('conversations').findOne({
-        conversation_id : {
-            $in : [cnv1, cnv2]
-        }
+        conversation_id : cnv
     });
 }
 
-module.exports = {getCandidate,imageUpload,updateNumber,updateSkill,
+// socket database
+async function getUserId(mail_id){
+    return await client.db('socket').collection('users').findOne({
+        mail : mail_id},
+        {projection : {_id : 0}}
+    )
+}
+
+async function getSocketID(uuid){
+    return await client.db('socket').collection('users').findOne({
+        uuid : uuid
+    },{
+        projection : {_id : 0,mail : 0, uuid : 0}
+    })
+}
+
+async function searchUsers(name){
+    return await dbClient.collection("Candidate").find(
+        {firstName: {$regex : `^${name}`, $options : "i"}},
+        {
+            projection : {_id: 0, uuid : 1, mail : 1, name : 1}
+        }
+    ).toArray();
+}
+
+async function createConversation(sender, receiver){
+    const cnv = [sender.user_id ?? sender.uuid,receiver.uuid ?? receiver.user_id].sort().join("_")
+    const check = await socketClient.collection('conversations').findOne({
+        conversation_id : cnv,
+    },{projection : {_id : 0}})
+    const {uuid,mail, name} = receiver
+    delete sender.socketId
+    return check ?? await socketClient.collection('conversations').insertOne({
+        conversation_id : cnv,
+        sender : sender,
+        receiver : {
+            uuid : uuid,
+            mail : mail,
+            name : name
+        },
+        messages : [{
+            sender : receiver.name,
+            content : `Hi ${sender.name},\nGreetings of the day\nthis is your helpdesk chat\nplease send a message for any assistance needed.`
+        }]
+    });
+}
+
+module.exports = {getCandidate,imageUpload,updateNumber,updateSkill,getUserId,
     registerUser, validateUser, getReferral, getService,updateReferral,
-    updateService, getMyReferral,getMyService,getCnvWithoutMsg, getCnvWithConversationId}
+    updateService, getMyReferral,getMyService,getCnvWithoutMsg, getCnvWithConversationId,
+    getSocketID, searchUsers,createConversation}

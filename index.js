@@ -23,6 +23,7 @@ async function InitiateDatabase(){
 }
 
 async function ConnectToServer(){
+    server.use(cors(corsOptions));
     const httpServer = server.listen(3000,'localhost',()=>{
         console.log(`Connected to Server Successfully! http://localhost:${port}`)
     })
@@ -30,9 +31,9 @@ async function ConnectToServer(){
         cors : {
             origin : true
         },
-        path : "/js/Messages"
+        path : "/socket"
     })
-    server.use(cors(corsOptions));
+    require('./SocketIO/socketIO.js')(socketServer);
     server.use(express.json());
     server.use("/",require("./loginAndRegister.js"));
     server.use("/update",require("./update.js"));

@@ -1,26 +1,22 @@
 const client = require('../index.js')
 
 const dbClient = client.db('socket');
-const databaseInitialized = false;
+let databaseInitialized = false;
 
 async function init(){
-    await dbClient.collection('users').createIndex('userID')
+    databaseInitialized = true;
+    await dbClient.collection('users').createIndex({uuid : 1},
+        {unique : true})
 }
 
-async function userSocketID(userID,socketID){
-    if(!databaseInitialized){
-        await init();
-    }
-    const flag = await userExist(userID);
+async function userSocketID(uuid,socketID){
+    const flag = await userExist(uuid);
     return flag ? await dbClient.collection('users').updateOne({
-        userID : userID}, {
+        uuid : uuid}, {
         $set : {
-            socketID : socketID
+            socketId : socketID
         }
-    }) : await dbClient.collection('users').insertOne({
-        userID : userID,
-        socketID : socketID
-    })
+    }) : null
 }
 
 async function getUserSocketID(userID){
@@ -30,8 +26,22 @@ async function getUserSocketID(userID){
     return receiver.socketID;
 }
 
-async function userExist(userID){
-    return await dbClient.collection('users').findOne({userID : userID})
+async function userExist(uuid){
+    return await dbClient.collection('users').findOne({uuid : uuid})
 }
 
-module.exports = {userSocketID,userExist,getUserSocketID}
+async function updateMessage(receiver, sender, message, sender_name){
+    const cnv1 = [receiver,sender].sort().join("_")
+    return await dbClient.collection('conversations').updateOne(
+        {conversation_id : cnv1},
+        {$push : {
+                messages : {
+                    content : message,
+                    sender : sender_name,
+                    timestamp : Date.now()
+                }
+            }}
+    )
+}
+
+module.exports = {userSocketID,userExist,getUserSocketID,updateMessage}
